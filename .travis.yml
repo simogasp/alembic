@@ -1,4 +1,5 @@
 language: cpp
+dist: trusty
 
 cache:
   apt: true
@@ -8,22 +9,24 @@ matrix:
     - compiler: gcc
       addons:
         apt:
-          sources:
-            - ubuntu-toolchain-r-test
+          # sources:
+          #   - ubuntu-toolchain-r-test
           packages:
-            - g++-4.8
+            # - g++-4.8
             - zlib1g-dev
-      env: COMPILER=g++-4.8
+            - libhdf5-dev
+      # env: COMPILER=g++-4.8
     - compiler: clang
       addons:
         apt:
-          sources:
-            - ubuntu-toolchain-r-test
-            - llvm-toolchain-precise-3.7
+          # sources:
+          #   - ubuntu-toolchain-r-test
+          #   - llvm-toolchain-precise-3.7
           packages:
-            - clang-3.7
+            # - clang-3.7
             - zlib1g-dev
-      env: COMPILER=clang-3.7
+            - libhdf5-dev
+      # env: COMPILER=clang-3.7
 
 env:
   global:
@@ -88,8 +91,9 @@ before_script:
   - >
      cmake $ALEMBIC_SOURCE \
         -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-        -DCMAKE_INSTALL_PREFIX=$ALEMBIC_INSTALL \
-        -DILMBASE_ROOT=$OPENEXR_INSTALL;
+        -DCMAKE_INSTALL_PREFIX:PATH=$ALEMBIC_INSTALL \
+        -DILMBASE_ROOT:PATH=$OPENEXR_INSTALL\
+        -DUSE_HDF5:BOOL=ON;
 script:
 # limit GCC builds to a reduced number of thread for the virtual machine
   - make install -j 2 VERBOSE=1
