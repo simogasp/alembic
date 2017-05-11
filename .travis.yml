@@ -4,29 +4,35 @@ dist: trusty
 cache:
   apt: true
 
+addons:
+  apt:
+    sources:
+      - llvm-toolchain-trusty
+      - ubuntu-toolchain-r-test
+    packages:
+      - clang-3.8
+      - g++-5
+      - zlib1g-dev
+      - libhdf5-dev
+
 matrix:
   include:
     - compiler: gcc
-      addons:
-        apt:
-          # sources:
-          #   - ubuntu-toolchain-r-test
-          packages:
-            # - g++-4.8
-            - zlib1g-dev
-            - libhdf5-dev
-      # env: COMPILER=g++-4.8
+      env: CXX_COMPILER=g++ C_COMPILER=gcc TOOLSET=gcc WITH_HDF5=ON BUILD_SHARED=OFF
+    - compiler: gcc
+      env: CXX_COMPILER=g++ C_COMPILER=gcc TOOLSET=gcc WITH_HDF5=OFF BUILD_SHARED=ON
+    - compiler: gcc
+      env: CXX_COMPILER=g++-5 C_COMPILER=gcc-5 TOOLSET=gcc WITH_HDF5=ON BUILD_SHARED=OFF
+    - compiler: gcc
+      env: CXX_COMPILER=g++-5 C_COMPILER=gcc-5 TOOLSET=gcc WITH_HDF5=OFF BUILD_SHARED=ON
     - compiler: clang
-      addons:
-        apt:
-          # sources:
-          #   - ubuntu-toolchain-r-test
-          #   - llvm-toolchain-precise-3.7
-          packages:
-            # - clang-3.7
-            - zlib1g-dev
-            - libhdf5-dev
-      # env: COMPILER=clang-3.7
+      env: CXX_COMPILER=clang++ C_COMPILER=clang TOOLSET=clang WITH_HDF5=OFF BUILD_SHARED=OFF
+    - compiler: clang
+      env: CXX_COMPILER=clang++ C_COMPILER=clang TOOLSET=clang WITH_HDF5=ON BUILD_SHARED=ON
+    - compiler: clang
+      env: CXX_COMPILER=clang++-3.8 C_COMPILER=clang-3.8 TOOLSET=clang WITH_HDF5=OFF BUILD_SHARED=OFF
+    - compiler: clang
+      env: CXX_COMPILER=clang++-3.8 C_COMPILER=clang-3.8 TOOLSET=clang WITH_HDF5=ON BUILD_SHARED=ON
 
 env:
   global:
@@ -35,6 +41,8 @@ env:
     - ALEMBIC_SOURCE=${TRAVIS_BUILD_DIR}
     - ALEMBIC_BUILD=${TRAVIS_BUILD_DIR}/build
     - ALEMBIC_INSTALL=${ALEMBIC_BUILD}/install
+    - ALEMBIC_BUILD_STATIC=${TRAVIS_BUILD_DIR}/buildStatic
+    - ALEMBIC_INSTALL_STATIC=${ALEMBIC_BUILD_STATIC}/install
     # OPENEXR
     - OPENEXR_ROOT=${HOME}/openexr
     - OPENEXR_SOURCE=${OPENEXR_ROOT}/source
@@ -63,6 +71,7 @@ before_install:
     if [ "$(ls -A $OPENEXR_INSTALL)" ]; then
       echo "OpenEXR found in cache.";
     else
+      ls -A $OPENEXR_INSTALL
       mkdir --parent $OPENEXR_SOURCE
       mkdir --parent $ILMBASE_BUILD
       mkdir --parent $OPENEXR_INSTALL
@@ -87,19 +96,43 @@ before_script:
   # Create build folder
   - mkdir --parent $ALEMBIC_BUILD
   - cd $ALEMBIC_BUILD
+  # if clang, get rid of the annoying warning about register
+  - >
+     if [[ $C_COMPILER == *"clang"* ]]; then
+       ADD_FLAG="-Wno-deprecated-register"
+     fi
   # Classic release build
   - >
      cmake $ALEMBIC_SOURCE \
+        -DCMAKE_CXX_COMPILER=$CXX_COMPILER \
+        -DCMAKE_C_COMPILER=$C_COMPILER \
+        -DCMAKE_CXX_FLAGS=$ADD_FLAG \
         -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
         -DCMAKE_INSTALL_PREFIX:PATH=$ALEMBIC_INSTALL \
         -DILMBASE_ROOT:PATH=$OPENEXR_INSTALL\
-        -DUSE_HDF5:BOOL=ON;
+        -DALEMBIC_SHARED_LIBS:BOOL=ON \
+        -DUSE_HDF5:BOOL=${WITH_HDF5};
 script:
 # limit GCC builds to a reduced number of thread for the virtual machine
   - make install -j 2 VERBOSE=1
 # Perform unit tests
   - make test
-
+  # Create build folder
+  - mkdir --parent ${ALEMBIC_BUILD_STATIC}
+  - cd ${ALEMBIC_BUILD_STATIC}
+  # Classic release build
+  - >
+     cmake $ALEMBIC_SOURCE \
+        -DCMAKE_CXX_COMPILER=$CXX_COMPILER \
+        -DCMAKE_C_COMPILER=$C_COMPILER \
+        -DCMAKE_CXX_FLAGS=$ADD_FLAG \
+        -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+        -DCMAKE_INSTALL_PREFIX:PATH=$ALEMBIC_INSTALL_STATIC \
+        -DILMBASE_ROOT:PATH=$OPENEXR_INSTALL\
+        -DALEMBIC_SHARED_LIBS:BOOL=OFF \
+        -DUSE_HDF5:BOOL=${WITH_HDF5};
+  - make install -j 2 VERBOSE=1
+  - make test
 
 cache:
   directories:
