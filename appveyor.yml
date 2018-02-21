@@ -1,0 +1,39 @@
+version: 1.0.{build}
+
+environment:
+  matrix:
+  # Visual Studio 2015 x64
+#  - GENERATOR: Visual Studio 14 2015 Win64
+#    PLATFORM: x64
+#    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+
+  # Visual Studio 2017 x64
+  - GENERATOR: Visual Studio 15 2017 Win64
+    PLATFORM: x64
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+
+configuration:
+  - Debug
+  - Release
+
+install:
+  - vcpkg install hdf5:x64-windows ilmbase:x64-windows zlib:x64-windows --featurepackages
+
+before_build:
+  - md build
+  - cd build
+  - cmake -E env CXXFLAGS="/w44251 /w44275" cmake -G"%GENERATOR%" -DCMAKE_BUILD_TYPE=%configuration% -DUSE_HDF5:BOOL=ON -DCMAKE_TOOLCHAIN_FILE=c:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+
+build:
+  project: $(APPVEYOR_BUILD_FOLDER)\build\Alembic.sln
+  parallel: true
+  verbosity: minimal
+
+#test_script:
+#  - ctest -C %configuration% -V
+#
+#build_script:
+#  - echo "Done!"
+
+cache:
+  c:\tools\vcpkg\installed\
